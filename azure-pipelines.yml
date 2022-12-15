@@ -26,8 +26,8 @@ steps:
 
 # Install pre-requisits 
 - script: |
-    ssh -i $(caCertificate.secureFilePath) centos@3.65.42.188 sudo -- "yum install -y yum-utils && sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo && yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin"
-    ssh -i $(caCertificate.secureFilePath) centos@3.65.42.188 sudo -- "systemctl start docker"
+    ssh -i $(caCertificate.secureFilePath) centos@3.65.42.188 sudo -- "yum install -y yum-utils && sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo && yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin" || true
+    ssh -i $(caCertificate.secureFilePath) centos@3.65.42.188 sudo -- "systemctl start docker" || true
 
 - script: chmod 400 $(caCertificate.secureFilePath)
   displayName: Build service image
