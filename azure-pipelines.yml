@@ -3,17 +3,46 @@
 # Add steps that build, run tests, deploy, and more:
 # https://aka.ms/yaml
 
+#Pipeline will be triggered on master or the commit tag will be test.*
+
+
+
 trigger:
 - master
 
+
 pool:
-  vmImage: ubuntu-latest
+  name: Test
 
+
+# Load secured pem file
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- task: DownloadSecureFile@1
+  name: caCertificate
+  displayName: 'Download pem'
+  inputs:
+    secureFile: 'devops-exam.pem'
 
+# Install pre-requisits 
 - script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+    bash -c "cd ../.. && cd _temp/ && chmod 400 devops-exam.pem && ssh -i devops-exam.pem centos@3.65.42.188 sudo -- 'yum install -y yum-utils && sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo && sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin && sudo systemctl start docker' || true"
+
+- script: docker build -t counter-app .
+  displayName: Build service image
+
+# Copy image to remote host
+- script: bash -c "cd ../.. && cd _temp/ && docker save counter-app | bzip2 | ssh -i devops-exam.pem centos@3.65.42.188 sudo -- 'docker load'"
+  displayName: Copy image to instance
+
+# Run app on dev (Just to example the different deployment)
+- script: bash -c "cd ../.. && cd _temp/ && ssh -i devops-exam.pem centos@3.65.42.188 sudo -- 'docker rm -f counter-app && sudo docker run -p 80:8080 -d --name counter-app counter-app'"
+  condition: ne(variables['Build.SourceBranch'], 'ref/head/master')
+  displayName: Run app - DEV
+
+# Run app on prod
+- script: bash -c "cd ../.. && cd _temp/ && ssh -i devops-exam.pem centos@3.65.42.188 sudo -- 'docker rm -f counter-app && sudo docker run -p 80:8080 -d --name counter-app counter-app'"
+  condition: eq(variables['Build.SourceBranch'], 'ref/head/master')
+  displayName: Run app - PROD
+
+- script: bash -c "pre=$(curl -s $(server-endpoint) | grep -Po "\\d+") && curl -X POST $(server-endpoint) && post=$(curl -s $(server-endpoint) | grep -Po "\\d+" && if [[ $post > $pre ]]; then echo 'Success!'; else exit 1; fi)"
+  displayName: Check counter
