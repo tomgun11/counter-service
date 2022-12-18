@@ -4,17 +4,16 @@
 # https://aka.ms/yaml
 
 #Pipeline will be triggered on master or the commit tag will be test.*
-trigger:
-  branches:
-    include:
-    - master
-  tags:
-    include:
-    - test.*
 
-#Currently cannot use free agents due to Microsoft's restriction (Need to request, takes between 3-5 business days)
+
+
+trigger:
+- master
+
+
 pool:
   name: Test
+
 
 # Load secured pem file
 steps:
@@ -26,23 +25,24 @@ steps:
 
 # Install pre-requisits 
 - script: |
-    bash
-    echo test
-    chmod 400 $(caCertificate.secureFilePath) 
-    ssh -i $(caCertificate.secureFilePath) centos@3.65.42.188 sudo -- "yum install -y yum-utils && sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo && yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin" || true
-    ssh -i $(caCertificate.secureFilePath) centos@3.65.42.188 sudo -- "systemctl start docker" || true
-
-- script: chmod 400 $(caCertificate.secureFilePath)
-  displayName: Build service image
+    bash -c "cd ../.. && cd _temp/ && chmod 400 devops-exam.pem && ssh -i devops-exam.pem centos@3.65.42.188 sudo -- 'yum install -y yum-utils && sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo && sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin && sudo systemctl start docker' || true"
 
 - script: docker build -t counter-app .
   displayName: Build service image
 
 # Copy image to remote host
-- script: docker save counter-app | bzip2 | ssh -i $(caCertificate.secureFilePath) centos@3.65.42.188 sudo -- "docker load"
+- script: bash -c "cd ../.. && cd _temp/ && docker save counter-app | bzip2 | ssh -i devops-exam.pem centos@3.65.42.188 sudo -- 'docker load'"
   displayName: Copy image to instance
 
-# Run app
-- script: ssh -i $(caCertificate.secureFilePath) centos@3.65.42.188 sudo -- 'docker run -p 80:8080 counter-app'
-  displayName: Run app
+# Run app on dev (Just to example the different deployment)
+- script: bash -c "cd ../.. && cd _temp/ && ssh -i devops-exam.pem centos@3.65.42.188 sudo -- 'docker rm -f counter-app && sudo docker run -p 80:8080 -d --name counter-app counter-app'"
+  condition: ne(variables['Build.SourceBranch'], 'ref/head/master')
+  displayName: Run app - DEV
 
+# Run app on prod
+- script: bash -c "cd ../.. && cd _temp/ && ssh -i devops-exam.pem centos@3.65.42.188 sudo -- 'docker rm -f counter-app && sudo docker run -p 80:8080 -d --name counter-app counter-app'"
+  condition: eq(variables['Build.SourceBranch'], 'ref/head/master')
+  displayName: Run app - PROD
+
+- script: bash -c "pre=$(curl -s $(server-endpoint) | grep -Po "\\d+") && curl -X POST $(server-endpoint) && post=$(curl -s $(server-endpoint) | grep -Po "\\d+" && if [[ $post > $pre ]]; then echo 'Success!'; else exit 1; fi)"
+  displayName: Check counter
