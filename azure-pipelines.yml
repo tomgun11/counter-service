@@ -14,7 +14,7 @@ trigger:
 
 #Currently cannot use free agents due to Microsoft's restriction (Need to request, takes between 3-5 business days)
 pool:
-  vmImage: ubuntu-latest
+  name: Test
 
 # Load secured pem file
 steps:
