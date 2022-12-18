@@ -13,8 +13,8 @@ trigger:
     - test.*
 
 #Currently cannot use free agents due to Microsoft's restriction (Need to request, takes between 3-5 business days)
-pool:
-  name: Test
+# pool:
+#   name: Azure Pipelines
 
 # Load secured pem file
 steps:
